@@ -1,0 +1,49 @@
+{
+  "name": "redux-wait-actions",
+  "description": "Waits for specific actions to be dispatched until a timeout expires.",
+  "version": "0.1.0",
+  "keywords": [
+    "redux",
+    "test",
+    "action",
+    "wait",
+    "timeout"
+  ],
+  "author": "André Costa Lima <andre.lima@moxy.studio>",
+  "homepage": "https://github.com/moxystudio/redux-wait-actions",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:moxystudio/redux-wait-actions.git"
+  },
+  "license": "MIT",
+  "scripts": {
+    "lint": "eslint .",
+    "lint:staged": "lint-staged",
+    "test": "jest --env node --coverage",
+    "test:watch": "jest --env node --watch",
+    "posttest": "npm run lint",
+    "precommit": "npm run lint:staged",
+    "prerelease": "npm t",
+    "release": "standard-version",
+    "preversion": "echo 'Use `$ npm run release` instead of `$ npm version`' && exit 1"
+  },
+  "standard-version": {
+    "scripts": {
+      "posttag": "git push --follow-tags origin master"
+    }
+  },
+  "lint-staged": {
+    "*.js": "eslint"
+  },
+  "devDependencies": {
+    "eslint": "^4.3.0",
+    "eslint-config-moxy": "^3.0.0",
+    "husky": "^0.14.3",
+    "jest": "^21.0.1",
+    "lint-staged": "^4.0.2",
+    "redux": "^3.7.2",
+    "redux-mock-store": "^1.2.3",
+    "chai": "^4.1.2",
+    "standard-version": "^4.2.0"
+  }
+}
