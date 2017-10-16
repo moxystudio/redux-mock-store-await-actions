@@ -1,19 +1,20 @@
 {
-  "name": "redux-wait-actions",
-  "description": "Waits for specific actions to be dispatched until a timeout expires.",
+  "name": "redux-mock-store-await-actions",
+  "description": "Awaits for specific actions to be dispatched until a timeout expires.",
   "version": "1.0.0",
   "keywords": [
     "redux",
     "test",
+    "mock",
     "action",
     "wait",
     "timeout"
   ],
   "author": "André Costa Lima <andre.lima@moxy.studio>",
-  "homepage": "https://github.com/moxystudio/redux-wait-actions",
+  "homepage": "https://github.com/moxystudio/redux-mock-store-await-actions",
   "repository": {
     "type": "git",
-    "url": "git@github.com:moxystudio/redux-wait-actions.git"
+    "url": "git@github.com:moxystudio/redux-mock-store-await-actions.git"
   },
   "license": "MIT",
   "scripts": {
@@ -35,6 +36,9 @@
   "lint-staged": {
     "*.js": "eslint"
   },
+  "dependencies": {
+    "lodash": "^4.17.4"
+  },
   "devDependencies": {
     "eslint": "^4.3.0",
     "eslint-config-moxy": "^3.0.0",
@@ -42,6 +46,7 @@
     "jest": "^21.0.1",
     "lint-staged": "^4.0.2",
     "redux": "^3.7.2",
+    "redux-thunk": "^2.2.0",
     "redux-mock-store": "^1.2.3",
     "chai": "^4.1.2",
     "standard-version": "^4.2.0"

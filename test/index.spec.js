@@ -1,33 +1,31 @@
 const waitForActions = require('../');
 const configureStore = require('redux-mock-store').default;
-const chai = require('chai');
+const thunkMiddleware = require('redux-thunk').default;
 
-const middlewares = [];
 const initialState = {};
 const action1 = { type: 'ACTION-1' };
 const action2 = { type: 'ACTION-2' };
 const action3 = { type: 'ACTION-3' };
-let mockStore = configureStore(middlewares)(initialState);
 
-const asyncActionsCreator = (actions, timeoutMs = 10) => (dispatch) =>
-    new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-            clearTimeout(timeout);
-            actions.forEach((action) => dispatch(action));
-            resolve();
-        }, timeoutMs);
-    });
+const asyncActionsCreator = (actions, timeoutMs = 10) => (dispatch) => {
+    const timeout = setTimeout(() => {
+        clearTimeout(timeout);
+        actions.forEach((action) => dispatch(action));
+    }, timeoutMs);
+};
 
 const actionsCreator = (actions) => (dispatch) =>
     actions.forEach((action) => dispatch(action));
 
+const createMockStore = (middlewares = []) => configureStore(middlewares)(initialState);
+
 afterEach(() => {
-    mockStore = configureStore(middlewares)(initialState);
     jest.useRealTimers();
     jest.clearAllMocks();
 });
 
-it('should fulfill the promise when action is dispatched', async () => {
+it('should fulfill the promise when a single action is dispatched', async () => {
+    const mockStore = createMockStore();
     const promise = waitForActions(mockStore, action1);
 
     mockStore.dispatch(action1);
@@ -37,6 +35,7 @@ it('should fulfill the promise when action is dispatched', async () => {
 });
 
 it('should fulfill the promise when action creator is dispatched', async () => {
+    const mockStore = createMockStore([thunkMiddleware]);
     const actions = [action1, action2, action3];
     const promise = waitForActions(mockStore, actions);
 
@@ -46,6 +45,7 @@ it('should fulfill the promise when action creator is dispatched', async () => {
 });
 
 it('should fulfill the promise when actions are dispatched', () => {
+    const mockStore = createMockStore();
     const promise = waitForActions(mockStore, [action1, action2, action3]);
 
     mockStore.dispatch(action1);
@@ -56,15 +56,17 @@ it('should fulfill the promise when actions are dispatched', () => {
 });
 
 it('should fulfill the promise when async action creator is dispatched', async () => {
+    const mockStore = createMockStore([thunkMiddleware]);
     const actions = [action1, action2, action3];
     const promise = waitForActions(mockStore, actions);
 
-    await mockStore.dispatch(asyncActionsCreator(actions));
+    mockStore.dispatch(asyncActionsCreator(actions));
     await promise;
     expect(mockStore.getActions()).toEqual(actions);
 });
 
 it('should reject the promise when no actions are dispatched', async () => {
+    const mockStore = createMockStore();
     const actions = [];
     const promise = waitForActions(mockStore, actions);
 
@@ -80,9 +82,59 @@ it('should reject the promise when no actions are dispatched', async () => {
     expect(mockStore.getActions()).toEqual(actions);
 });
 
+it('should fulfill the promise when a single action type is expected', () => {
+    const mockStore = createMockStore([thunkMiddleware]);
+    const promise = waitForActions(mockStore, action1.type);
+
+    mockStore.dispatch(action1);
+
+    return promise;
+});
+
+it('should fulfill the promise when action types are expected', () => {
+    const mockStore = createMockStore([thunkMiddleware]);
+    const actions = [action1, action2, action3];
+    const promise = waitForActions(mockStore, actions.map((action) => action.type));
+
+    mockStore.dispatch(actionsCreator(actions));
+
+    return promise;
+});
+
+it('should fulfill the promise when predicate is passed and returns true', async () => {
+    const mockStore = createMockStore([thunkMiddleware]);
+    const predicate = jest.fn(() => true);
+    const promise = waitForActions(mockStore, predicate);
+
+    mockStore.dispatch(action1);
+
+    await promise;
+    expect(predicate).toHaveBeenCalledWith([action1]);
+});
+
+it('should reject the promise when predicate is passed and returns false', async () => {
+    const mockStore = createMockStore([thunkMiddleware]);
+    const predicate = jest.fn(() => false);
+    const promise = waitForActions(mockStore, predicate);
+
+    mockStore.dispatch(action1);
+
+    let error;
+
+    try {
+        await promise;
+    } catch (e) {
+        error = e;
+    }
+
+    expect(predicate).toHaveBeenCalledWith([action1]);
+    expect(error).toEqual(new Error('timeout'));
+});
+
 it('should reject the promise when the default timeout expires', async () => {
     jest.useFakeTimers();
 
+    const mockStore = createMockStore();
     const actions = [];
     const promise = waitForActions(mockStore, actions);
 
@@ -95,12 +147,13 @@ it('should reject the promise when the default timeout expires', async () => {
     } catch (e) {
         error = e;
     }
-    expect(error).toBeDefined();
+
     expect(error).toEqual(new Error('timeout'));
     expect(mockStore.getActions()).toEqual(actions);
 });
 
 it('should return a promise with a teardown function', () => {
+    const mockStore = createMockStore();
     const promise = waitForActions(mockStore, action1);
 
     mockStore.dispatch(action1);
@@ -111,19 +164,8 @@ it('should return a promise with a teardown function', () => {
     return promise;
 });
 
-it('it should teardown dispatch on promise completion', async () => {
-    const mockDispatch = () => {};
-
-    mockStore.dispatch = mockDispatch;
-    const promise = waitForActions(mockStore, action1);
-
-    mockStore.dispatch(action1);
-
-    await promise;
-    chai.assert.strictEqual(mockStore.dispatch, mockDispatch);
-});
-
 it('should fulfill the promise if teardown is called before dispatch of remaining actions', async () => {
+    const mockStore = createMockStore();
     const promise = waitForActions(mockStore, [action1, action2, action3]);
 
     mockStore.dispatch(action1);
@@ -136,6 +178,7 @@ it('should fulfill the promise if teardown is called before dispatch of remainin
 it('should reject the promise if the specified timeout expires', async () => {
     jest.useFakeTimers();
 
+    const mockStore = createMockStore();
     const actions = [];
     const promise = waitForActions(mockStore, actions, 1000);
 
@@ -151,37 +194,4 @@ it('should reject the promise if the specified timeout expires', async () => {
     expect(error).toBeDefined();
     expect(error).toEqual(new Error('timeout'));
     expect(mockStore.getActions()).toEqual(actions);
-});
-
-it('should call action with dispatch and getState', (done) => {
-    waitForActions(mockStore, []);
-    const { dispatch: expectDispatch, getState: expectGetState } = mockStore;
-
-    const thunk = () => (dispatch, getState) => {
-        expect(dispatch).toBeInstanceOf(Function);
-        expect(getState).toBeInstanceOf(Function);
-        chai.assert.strictEqual(dispatch, expectDispatch);
-        chai.assert.strictEqual(getState, expectGetState);
-        done();
-    };
-
-    mockStore.dispatch(thunk());
-});
-
-it('should call action with custom argument', (done) => {
-    const expectedArgument = {
-        a: 1,
-        b: '2',
-        c: true,
-        d: () => {},
-    };
-
-    waitForActions(mockStore, [], { actionArgument: expectedArgument });
-
-    const thunk = () => (dispatch, getState, customArgument) => {
-        expect(customArgument).toMatchObject(expectedArgument);
-        done();
-    };
-
-    mockStore.dispatch(thunk());
 });
