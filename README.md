@@ -1,6 +1,6 @@
 # redux-wait-actions
 
-[![NPM version][npm-image]][npm-url] [![Downloads][downloads-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Coverage Status][codecov-image]][codecov-url] [![Dependency status][david-dm-image]][david-dm-url] [![Dev Dependency status][david-dm-dev-image]][david-dm-dev-url] [![Greenkeeper badge][greenkeeper-image]][greenkeeper-url]
+[![NPM version][npm-image]][npm-url] [![Downloads][downloads-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Coverage Status][codecov-image]][codecov-url] [![Dependency status][david-dm-image]][david-dm-url] [![Dev Dependency status][david-dm-dev-image]][david-dm-dev-url] [![Greenkeeper badge][greenkeeper-image]][greenkeeper-url] ![Conventional Commits][conventional-commits-url]
 
 [npm-url]:https://npmjs.org/package/redux-wait-actions
 [npm-image]:http://img.shields.io/npm/v/redux-wait-actions.svg
@@ -15,6 +15,7 @@
 [david-dm-dev-image]:https://img.shields.io/david/dev/moxystudio/redux-wait-actions.svg
 [greenkeeper-image]:https://badges.greenkeeper.io/moxystudio/redux-wait-actions.svg
 [greenkeeper-url]:https://greenkeeper.io
+[conventional-commits-url]:https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg
 
 > Waits for actions to be dispatched until a timeout expires.
 
