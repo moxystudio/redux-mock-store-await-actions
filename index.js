@@ -1,50 +1,78 @@
 'use strict';
 
-const wait = (store, actions, options) => {
-    options = Object.assign({
-        timeoutMs: 50,
-        actionArgument: undefined,
-    }, options);
+const isString = require('lodash/isString');
+const isSymbol = require('lodash/isSymbol');
+const isPlainObject = require('lodash/isPlainObject');
+const isEmpty = require('lodash/isEmpty');
+const differenceWith = require('lodash/differenceWith');
 
-    if (!Array.isArray(actions)) {
-        actions = [actions];
+function isValidAction(value) {
+    return isPlainObject(value) && (isString(value.type) || isSymbol(value.type));
+}
+
+function isValidActionType(value) {
+    return isString(value) || isSymbol(value);
+}
+
+const wait = (store, actions, timeout) => {
+    if (!timeout) {
+        timeout = 50;
     }
 
-    const originalDispatch = store.dispatch;
-    const unhookDispatch = () => {
-        store.dispatch = originalDispatch;
-    };
-    const complete = (timeout, callback) => {
-        clearTimeout(timeout);
-        unhookDispatch();
+    if (typeof actions !== 'function') {
+        if (!Array.isArray(actions)) {
+            actions = [actions];
+        }
+        actions = actions.map((value) => {
+            if (isValidAction(value)) {
+                return value;
+            }
+            if (isValidActionType(value)) {
+                return { type: value };
+            }
+            const json = JSON.stringify(value);
+
+            console.warn(`Unexpected action type: ${json}. Not according to flux-standard-action. Only string and symbol are valid`);
+
+            return value;
+        });
+    }
+
+    const shouldPromiseResolve = typeof actions === 'function' ?
+        (storeActions) => actions(storeActions) :
+        (storeActions) => isEmpty(differenceWith(actions, storeActions, (action, storeAction) => {
+            const json = JSON.stringify(storeAction);
+
+            if (!isValidAction(storeAction)) {
+                console.warn(`Action ${json} is not a FSA (flux-standard-action). Action matcher evaluated to false`);
+
+                return false;
+            }
+
+            return action.type === storeAction.type;
+        }));
+    const complete = (timer, callback) => {
+        clearTimeout(timer);
         callback();
     };
+    // Curry the teardown function to be able to get it from the Promise
     let teardownHolder = (f) => () => f;
 
     const promise = new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-            complete(timeout, () => reject(new Error('timeout')));
-        }, options.timeoutMs);
+        const timer = setTimeout(() => {
+            complete(timer, () => reject(new Error('timeout')));
+        }, timeout);
         const teardown = () => {
-            complete(timeout, resolve);
+            complete(timer, resolve);
         };
 
         teardownHolder = teardownHolder(teardown);
 
-        store.dispatch = (interceptedAction) => {
-            if (typeof interceptedAction !== 'function') {
-                actions = actions.filter((action) => action.type !== interceptedAction.type);
-                const action = originalDispatch.call(store, interceptedAction);
-
-                if (actions.length === 0) {
-                    complete(timeout, resolve);
-                }
-
-                return action;
+        store.subscribe(() => {
+            if (shouldPromiseResolve(store.getActions())) {
+                complete(timeout, resolve);
             }
-
-            return interceptedAction(store.dispatch, store.getState, options.actionArgument);
-        };
+        });
     });
 
     promise.teardown = teardownHolder();
