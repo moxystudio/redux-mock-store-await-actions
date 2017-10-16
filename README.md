@@ -115,7 +115,12 @@ Default: 50
 
 The timeout given in milliseconds.
 
-##### 
+##### actionArgument
+
+Type: any<br>
+Default: undefined
+
+A custom argument to inject in thunk actions.
 
 ## Tests
 
