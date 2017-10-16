@@ -37,8 +37,7 @@
     "*.js": "eslint"
   },
   "dependencies": {
-    "lodash": "^4.17.4",
-    "flux-standard-action": "^1.2.0"
+    "lodash": "^4.17.4"
   },
   "devDependencies": {
     "eslint": "^4.3.0",
