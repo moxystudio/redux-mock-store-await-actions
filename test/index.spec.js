@@ -3,9 +3,10 @@ const configureStore = require('redux-mock-store').default;
 const thunkMiddleware = require('redux-thunk').default;
 
 const initialState = {};
-const action1 = { type: 'ACTION-1' };
-const action2 = { type: 'ACTION-2' };
-const action3 = { type: 'ACTION-3' };
+const action1 = { type: 'ACTION-1', payload: { id: 1, name: 'ACTION ONE' } };
+const action2 = { type: 'ACTION-2', payload: { id: 2, name: 'ACTION TWO' } };
+const action3 = { type: 'ACTION-3', payload: { id: 3, name: 'ACTION THREE' } };
+const action4 = { type: 'ACTION-4', payload: { id: 4, name: 'ACTION FOUR' } };
 
 const asyncActionsCreator = (actions, timeoutMs = 10) => (dispatch) => {
     const timeout = setTimeout(() => {
@@ -24,105 +25,112 @@ afterEach(() => {
     jest.clearAllMocks();
 });
 
-it('should fulfill the promise when a single action is dispatched', async () => {
+it('should resolve the promise when a single action is dispatched', async () => {
     const mockStore = createMockStore();
-    const promise = waitForActions(mockStore, action1);
 
     mockStore.dispatch(action1);
+    await waitForActions(mockStore, action1);
 
-    await promise;
     expect(mockStore.getActions()).toEqual([action1]);
 });
 
-it('should fulfill the promise when action creator is dispatched', async () => {
+it('should resolve the promise when action creator is dispatched', async () => {
     const mockStore = createMockStore([thunkMiddleware]);
     const actions = [action1, action2, action3];
-    const promise = waitForActions(mockStore, actions);
 
     mockStore.dispatch(actionsCreator(actions));
-    await promise;
+    await waitForActions(mockStore, actions);
+
     expect(mockStore.getActions()).toEqual(actions);
 });
 
-it('should fulfill the promise when actions are dispatched', () => {
+it('should resolve the promise when async action creator is dispatched', async () => {
+    const mockStore = createMockStore([thunkMiddleware]);
+    const actions = [action1, action2, action3];
+
+    mockStore.dispatch(asyncActionsCreator(actions));
+    await waitForActions(mockStore, actions);
+
+    expect(mockStore.getActions()).toEqual(actions);
+});
+
+it('should resolve the promise when expected actions match a subset of property values of dispatched actions', async () => {
+    const mockStore = createMockStore([thunkMiddleware]);
+    const actions = [action1, action2, action3, action4];
+
+    mockStore.dispatch(actionsCreator(actions));
+    await waitForActions(mockStore, [
+        { type: 'ACTION-1', payload: { id: 1 } },
+        { type: 'ACTION-2', payload: { name: 'ACTION TWO' } },
+        { type: 'ACTION-3' },
+        { type: 'ACTION-4', payload: { id: 4, name: 'ACTION FOUR' } },
+    ]);
+});
+
+it('should resolve the promise when no actions are expected', async () => {
     const mockStore = createMockStore();
-    const promise = waitForActions(mockStore, [action1, action2, action3]);
+    const actions = [];
+
+    await waitForActions(mockStore, actions);
+
+    expect(mockStore.getActions()).toEqual(actions);
+});
+
+it('should reject the promise when expected actions are not received and timeout expires', async () => {
+    const mockStore = createMockStore();
+    const actions = [action1, action2, action3];
 
     mockStore.dispatch(action1);
     mockStore.dispatch(action2);
-    mockStore.dispatch(action3);
-
-    return promise;
-});
-
-it('should fulfill the promise when async action creator is dispatched', async () => {
-    const mockStore = createMockStore([thunkMiddleware]);
-    const actions = [action1, action2, action3];
-    const promise = waitForActions(mockStore, actions);
-
-    mockStore.dispatch(asyncActionsCreator(actions));
-    await promise;
-    expect(mockStore.getActions()).toEqual(actions);
-});
-
-it('should reject the promise when no actions are dispatched', async () => {
-    const mockStore = createMockStore();
-    const actions = [];
-    const promise = waitForActions(mockStore, actions);
 
     let error;
 
     try {
-        await promise;
+        await waitForActions(mockStore, actions);
     } catch (e) {
         error = e;
     }
-    expect(error).toBeDefined();
+
     expect(error).toEqual(new Error('timeout'));
-    expect(mockStore.getActions()).toEqual(actions);
 });
 
-it('should fulfill the promise when a single action type is expected', () => {
+it('should resolve the promise when a single action type is expected', () => {
     const mockStore = createMockStore([thunkMiddleware]);
-    const promise = waitForActions(mockStore, action1.type);
 
     mockStore.dispatch(action1);
 
-    return promise;
+    return waitForActions(mockStore, 'ACTION-1');
 });
 
 it('should fulfill the promise when action types are expected', () => {
     const mockStore = createMockStore([thunkMiddleware]);
-    const actions = [action1, action2, action3];
-    const promise = waitForActions(mockStore, actions.map((action) => action.type));
 
-    mockStore.dispatch(actionsCreator(actions));
+    mockStore.dispatch(actionsCreator([action1, action2, action3]));
 
-    return promise;
+    return waitForActions(mockStore, ['ACTION-1', 'ACTION-2', 'ACTION-3']);
 });
 
-it('should fulfill the promise when predicate is passed and returns true', async () => {
+it('should fulfill the promise when predicate is passed and evaluates to true', async () => {
     const mockStore = createMockStore([thunkMiddleware]);
     const predicate = jest.fn(() => true);
-    const promise = waitForActions(mockStore, predicate);
 
     mockStore.dispatch(action1);
+    mockStore.dispatch(action2);
+    await waitForActions(mockStore, predicate);
 
-    await promise;
-    expect(predicate).toHaveBeenCalledWith([action1]);
+    expect(predicate).toHaveBeenCalledWith([action1, action2]);
 });
 
-it('should reject the promise when predicate is passed and returns false', async () => {
+it('should reject the promise when predicate is passed and evaluates to false', async () => {
     const mockStore = createMockStore([thunkMiddleware]);
     const predicate = jest.fn(() => false);
-    const promise = waitForActions(mockStore, predicate);
 
     mockStore.dispatch(action1);
 
     let error;
 
     try {
-        await promise;
+        await waitForActions(mockStore, predicate);
     } catch (e) {
         error = e;
     }
@@ -135,8 +143,7 @@ it('should reject the promise when the default timeout expires', async () => {
     jest.useFakeTimers();
 
     const mockStore = createMockStore();
-    const actions = [];
-    const promise = waitForActions(mockStore, actions);
+    const promise = waitForActions(mockStore, action1);
 
     jest.runAllTimers();
 
@@ -149,38 +156,44 @@ it('should reject the promise when the default timeout expires', async () => {
     }
 
     expect(error).toEqual(new Error('timeout'));
-    expect(mockStore.getActions()).toEqual(actions);
+    expect(mockStore.getActions()).toEqual([]);
 });
 
-it('should return a promise with a teardown function', () => {
+it('should return a promise with a cancel function', () => {
     const mockStore = createMockStore();
     const promise = waitForActions(mockStore, action1);
 
-    mockStore.dispatch(action1);
+    expect(promise).toHaveProperty('cancel');
+    expect(promise.cancel).toBeInstanceOf(Function);
 
-    expect(promise).toHaveProperty('teardown');
-    expect(promise.teardown).toBeInstanceOf(Function);
+    mockStore.dispatch(action1);
 
     return promise;
 });
 
-it('should fulfill the promise if teardown is called before dispatch of remaining actions', async () => {
+it('should reject the promise if cancel() is called before dispatch of remaining actions', async () => {
     const mockStore = createMockStore();
+
     const promise = waitForActions(mockStore, [action1, action2, action3]);
 
-    mockStore.dispatch(action1);
-    mockStore.dispatch(action2);
-    promise.teardown();
+    promise.cancel();
 
-    await promise;
+    let error;
+
+    try {
+        await promise;
+    } catch (e) {
+        error = e;
+    }
+
+    expect(error).toEqual(new Error('cancelled'));
 });
 
 it('should reject the promise if the specified timeout expires', async () => {
     jest.useFakeTimers();
 
     const mockStore = createMockStore();
-    const actions = [];
-    const promise = waitForActions(mockStore, actions, 1000);
+    const promise = waitForActions(mockStore, action1, 1000);
 
     jest.runTimersToTime(1000);
 
@@ -191,7 +204,6 @@ it('should reject the promise if the specified timeout expires', async () => {
     } catch (e) {
         error = e;
     }
-    expect(error).toBeDefined();
+
     expect(error).toEqual(new Error('timeout'));
-    expect(mockStore.getActions()).toEqual(actions);
 });

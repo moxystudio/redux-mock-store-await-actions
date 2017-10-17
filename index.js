@@ -1,17 +1,10 @@
 'use strict';
 
-const isString = require('lodash/isString');
-const isSymbol = require('lodash/isSymbol');
-const isPlainObject = require('lodash/isPlainObject');
-const isEmpty = require('lodash/isEmpty');
 const differenceWith = require('lodash/differenceWith');
+const isMatch = require('lodash/isMatch');
 
-function isValidAction(value) {
-    return isPlainObject(value) && (isString(value.type) || isSymbol(value.type));
-}
-
-function isValidActionType(value) {
-    return isString(value) || isSymbol(value);
+function isAction(value) {
+    return typeof value === 'object' && typeof value.type === 'string';
 }
 
 const wait = (store, actions, timeout) => {
@@ -24,58 +17,51 @@ const wait = (store, actions, timeout) => {
             actions = [actions];
         }
         actions = actions.map((value) => {
-            if (isValidAction(value)) {
+            if (isAction(value)) {
                 return value;
             }
-            if (isValidActionType(value)) {
-                return { type: value };
+            if (typeof value !== 'string') {
+                console.warn(`Action type ${value} is not a string`);
             }
-            const json = JSON.stringify(value);
 
-            console.warn(`Unexpected action type: ${json}. Not according to flux-standard-action. Only string and symbol are valid`);
-
-            return value;
+            return { type: value };
         });
     }
 
     const shouldPromiseResolve = typeof actions === 'function' ?
         (storeActions) => actions(storeActions) :
-        (storeActions) => isEmpty(differenceWith(actions, storeActions, (action, storeAction) => {
-            const json = JSON.stringify(storeAction);
+        (storeActions) => differenceWith(actions, storeActions, (action, storeAction) => isMatch(storeAction, action)).length === 0;
 
-            if (!isValidAction(storeAction)) {
-                console.warn(`Action ${json} is not a FSA (flux-standard-action). Action matcher evaluated to false`);
+    // If the store already contains the expected actions, resolve the Promise immediately
+    if (shouldPromiseResolve(store.getActions())) {
+        const promise = Promise.resolve();
 
-                return false;
-            }
+        promise.cancel = () => {};
 
-            return action.type === storeAction.type;
-        }));
-    const complete = (timer, callback) => {
-        clearTimeout(timer);
-        callback();
-    };
-    // Curry the teardown function to be able to get it from the Promise
-    let teardownHolder = (f) => () => f;
+        return promise;
+    }
+
+    let cancel = (f) => () => f;
 
     const promise = new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-            complete(timer, () => reject(new Error('timeout')));
-        }, timeout);
-        const teardown = () => {
-            complete(timer, resolve);
+        const complete = (promiseResolution) => {
+            clearTimeout(timer);
+            unsubscribe();
+            promiseResolution();
         };
-
-        teardownHolder = teardownHolder(teardown);
-
-        store.subscribe(() => {
+        const unsubscribe = store.subscribe(() => {
             if (shouldPromiseResolve(store.getActions())) {
-                complete(timeout, resolve);
+                complete(resolve);
             }
         });
+        const timer = setTimeout(() => {
+            complete(() => reject(new Error('timeout')));
+        }, timeout);
+
+        cancel = cancel(() => reject(new Error('cancelled')));
     });
 
-    promise.teardown = teardownHolder();
+    promise.cancel = cancel();
 
     return promise;
 };
