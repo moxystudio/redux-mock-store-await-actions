@@ -1,0 +1,53 @@
+{
+  "name": "redux-mock-store-await-actions",
+  "description": "Waits for specific actions to be dispatched or a timeout expires.",
+  "version": "1.0.0",
+  "keywords": [
+    "redux",
+    "test",
+    "mock",
+    "action",
+    "wait",
+    "timeout"
+  ],
+  "author": "André Costa Lima <andre.lima@moxy.studio>",
+  "homepage": "https://github.com/moxystudio/redux-mock-store-await-actions",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:moxystudio/redux-mock-store-await-actions.git"
+  },
+  "license": "MIT",
+  "scripts": {
+    "lint": "eslint .",
+    "test": "jest --env node --coverage",
+    "posttest": "npm run lint",
+    "precommit": "lint-staged",
+    "prerelease": "npm t",
+    "release": "standard-version"
+  },
+  "standard-version": {
+    "scripts": {
+      "posttag": "git push --follow-tags origin master"
+    }
+  },
+  "lint-staged": {
+    "*.js": "eslint"
+  },
+  "dependencies": {
+    "lodash": "^4.17.4"
+  },
+  "devDependencies": {
+    "babel-plugin-transform-async-to-generator": "^6.24.1",
+    "babel-plugin-transform-runtime": "^6.23.0",
+    "babel-preset-es2015": "^6.22.0",
+    "eslint": "^4.3.0",
+    "eslint-config-moxy": "^3.0.0",
+    "husky": "^0.14.3",
+    "jest": "^21.2.1",
+    "lint-staged": "^4.0.2",
+    "redux": "^3.7.2",
+    "redux-mock-store": "^1.2.3",
+    "redux-thunk": "^2.2.0",
+    "standard-version": "^4.2.0"
+  }
+}
