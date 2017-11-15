@@ -40,7 +40,7 @@
     "babel-plugin-transform-runtime": "^6.23.0",
     "babel-preset-es2015": "^6.22.0",
     "eslint": "^4.3.0",
-    "eslint-config-moxy": "^3.0.0",
+    "eslint-config-moxy": "^4.0.0",
     "husky": "^0.14.3",
     "jest": "^21.2.1",
     "lint-staged": "^5.0.0",
