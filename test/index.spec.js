@@ -1,7 +1,9 @@
-import waitForActions from '../';
-import configureStore from 'redux-mock-store';
-import thunkMiddleware from 'redux-thunk';
-import assertError from './util/assertError';
+'use strict';
+
+const waitForActions = require('../');
+const configureStore = require('redux-mock-store').default;
+const thunkMiddleware = require('redux-thunk').default;
+const assertError = require('./util/assertError');
 
 const initialState = {};
 const action1 = { type: 'ACTION-1', payload: { id: 1, name: 'ACTION ONE' } };

@@ -1,8 +1,0 @@
-{
-    "env": {
-        "jest": true
-    },
-    "extends": [
-        "eslint-config-moxy/es8"
-    ]
-}
