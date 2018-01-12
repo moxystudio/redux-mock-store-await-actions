@@ -159,7 +159,7 @@ await waitForActions(store, (storeActions) => {
 });
 ```
 
-**NOTE:** Subsequent calls to `waitForActions` should be preceded by a call to `store.clearActions()`, otherwise the returned `Promise` will resolve immediately.
+**NOTE:** Subsequent calls to `waitForActions` with the same actions should be preceded by a call to `store.clearActions()`, otherwise the returned `Promise` will resolve immediately.
 
 ## API
 
