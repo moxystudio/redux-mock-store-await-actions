@@ -68,7 +68,7 @@ function fetchOrders() {
     }
 }
 
-store.dispatch(login('my-username', '12345'));
+store.dispatch(login('my-username', 'my-password'));
 
 expect(store.getActions()).toContain([
     'LOGIN_START',
@@ -80,7 +80,7 @@ The assertion above will fail because `FETCH_ORDERS_SUCCESS` will not yet exist 
 To solve this, one can use `setTimeout` explicitly in each test:
 
 ```js
-store.dispatch(login('my-username', '12345'));
+store.dispatch(login('my-username', 'my-password'));
 
 setTimeout(() => expect(store.getActions()).toContain([
     'LOGIN_START',
@@ -104,9 +104,11 @@ import thunkMiddleware from 'redux-thunk';
 
 const store = configureStore([thunkMiddleware])();
 
-store.dispatch(login('my-username', '12345'));
+store.dispatch(login('my-username', 'my-password'));
+
 await waitForActions(store, ['LOGIN_START', 'FETCH_ORDERS_SUCCESS']);
 ```
+
 
 ### Example #2: action objects
 
@@ -119,14 +121,15 @@ import thunkMiddleware from 'redux-thunk';
 
 const store = configureStore([thunkMiddleware])();
 
-store.dispatch(login('my-username', '123'));
+store.dispatch(login('my-username', 'my-password'));
 // { type: 'LOGIN_START', payload: { username: 'my-username' } }
 // matches
-// { type: 'LOGIN_START', payload: { username, password } }
+// { type: 'LOGIN_START', payload: { username: 'my-username', password } }
 //
 // { type: 'FETCH_ORDERS_SUCCESS', }
 // matches
 // { type: 'FETCH_ORDERS_SUCCESS', payload: orders }
+
 await waitForActions(store, [
     {
         type: 'LOGIN_START',
@@ -139,38 +142,20 @@ await waitForActions(store, [
 ]);
 ```
 
-### Example #3: function (advanced use cases)
-
-Supply a predicate which will be called for every action dispatched.
-
-```js
-import waitForActions from 'redux-mock-store-await-actions';
-import configureStore from 'redux-mock-store';
-import thunkMiddleware from 'redux-thunk';
-
-const store = configureStore([thunkMiddleware])();
-
-store.dispatch(login('my-username', '123'));
-await waitForActions(store, (storeActions) => {
-	const hasLoginStart = storeActions.some((item) => item.type === 'LOGIN_START' && item.payload.username === 'my-username');
-    const hasFetchOrdersSuccess = storeActions.some((item) => item.type === 'FETCH_ORDERS_SUCCESS');
-
-    return hasLoginStart && hasFetchOrdersSuccess;
-});
-```
-
-**NOTE:** Subsequent calls to `waitForActions` with the same actions should be preceded by a call to `store.clearActions()`, otherwise the returned `Promise` will resolve immediately.
 
 ## API
 
-### waitForActions(store, actions, [timeout])
+### waitForActions(store, actions, [options])
 
-Returns a `Promise` which fulfills if all `actions` are dispatched before the timeout expires, otherwise it is rejected. The `Promise` has a `.cancel()` function which, if called, will reject the `Promise`.
+Returns a `Promise` which fulfills if all `actions` are dispatched before the timeout expires. The `Promise` has a `.cancel()` function which, if called, will reject the `Promise`.
 
 The `Promise` might be rejected:
 
-* as a result of timeout expiration throwing `TimeoutError`
-* as a result of `.cancel()` invocation throwing `CancelledError`
+* as a result of timeout expiration, throwing `TimeoutError`
+* as a result of `.cancel()` invocation, throwing `CancelledError`
+* when the action's matcher throws `MismatchError`
+
+**NOTE:** Subsequent calls to `waitForActions` with the same actions should be preceded by a call to `store.clearActions()`, otherwise the returned `Promise` will resolve immediately.
 
 #### store
 
@@ -190,15 +175,71 @@ The actions to wait for. It can be either:
     * action objects;
     * action type strings;
     * action objects mixed with action type strings.
-* `Function`: a predicate which receives the array returned by `store.getActions()` of `redux-mock-store`.
 
-#### timeout
+#### options
+
+##### timeout
 
 Type: `Number`   
 Default: 50
 
 The timeout given in milliseconds.
 
+##### matcher
+
+Type: `Function`
+Default: `.matchers.order`
+
+Supplies custom behavior to specify how expected and dispatched actions should be compared. The function accepts two arguments: the array of expected actions and dispatched actions.
+
+The matcher must either:
+
+* return `true` to indicate a match has occurred and fulfill the `Promise`
+* return `false` to indicate a match is yet to occur and the `Promise` remains in pending state
+* throw `MismatchError` to indicate a match will not occur anymore and reject the `Promise`
+
+Two built-in matchers are already shipped and available under `.matchers` property:
+
+* `order` matcher performs a comparison between the specified order of expected actions against the order of arrival of dispatched actions. On the first mismatch detected, `MismatchError` is thrown for early rejection
+* `containing` matcher is a less strict matcher which checks whether expected actions are contained within dispatched actions
+
+Both matchers perform a *partial deep comparison* between dispatched and expected actions, as per [Lodash's isMatch()](https://lodash.com/docs/4.17.4#isMatch).
+
+Example of a custom matcher implementation:
+
+```js
+import waitForActions from 'redux-mock-store-await-actions';
+import configureStore from 'redux-mock-store';
+import thunkMiddleware from 'redux-thunk';
+
+const store = configureStore([thunkMiddleware])();
+const expectedActions = [
+    { type: 'LOGIN_START', payload: { username: 'my-username' } },
+    { type: 'FETCH_ORDERS_SUCCESS' }
+];
+
+store.dispatch(login('my-username', 'my-password'));
+// Throws if LOGIN_FAIL is dispatched or
+// Matches when LOGIN_START and FETCH_ORDERS_SUCCESS are dispatched
+
+waitForActions(store, expectedActions, { matcher: (expectedActions, storeActions) => {
+    const hasLoginFail = storeActions.some((action) => action.type === 'LOGIN_FAIL');
+
+    if (hasLoginFail) {
+        throw new waitForActions.MismatchError();
+    }
+    const hasLoginStart = storeActions.some((action) => action.type === 'LOGIN_START' && action.payload.username === 'my-username');
+    const hasFetchOrdersSuccess = storeActions.some((action) => action.type === 'FETCH_ORDERS_SUCCESS');
+
+    return hasLoginStart && hasFetchOrdersSuccess;
+}})
+.then(() => {
+    // Expected actions dispatched
+})
+.catch((err) => {
+    // MismatchError
+});
+```
 
 ## Tests
 

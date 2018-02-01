@@ -3,29 +3,53 @@
 const differenceWith = require('lodash/differenceWith');
 const isMatch = require('lodash/isMatch');
 const isPlainObject = require('lodash/isPlainObject');
+const isEqualWith = require('lodash/isEqualWith');
 
-function actionsMatch(actions, storeActions) {
-    return differenceWith(actions, storeActions, (action, storeAction) => isMatch(storeAction, action)).length === 0;
+function actionsContaining(expectedActions, storeActions) {
+    return differenceWith(expectedActions, storeActions, (expectedAction, storeAction) => isMatch(storeAction, expectedAction)).length === 0;
 }
 
-function waitForActions(store, actions, timeout) {
-    timeout = timeout || 50;
+function actionsMatchOrder(expectedActions, storeActions) {
+    const isEqual = isEqualWith(expectedActions, storeActions, (expectedAction, storeAction) => isMatch(storeAction, expectedAction));
 
-    if (typeof actions === 'string' || isPlainObject(actions)) {
-        actions = [actions];
-    }
-    if (Array.isArray(actions)) {
-        actions = actions.map((value) => typeof value === 'string' ? { type: value } : value);
+    if (!isEqual && storeActions.length >= expectedActions.length) {
+        throw new MismatchError();
     }
 
-    const shouldPromiseResolve = typeof actions === 'function' ?
-        actions :
-        (storeActions) => actionsMatch(actions, storeActions);
+    return isEqual;
+}
 
-    // If the store already contains the expected actions, resolve the Promise immediately
-    if (shouldPromiseResolve(store.getActions())) {
-        const promise = Promise.resolve();
+function settledPromise(matcher, expectedActions, storeActions) {
+    try {
+        if (matcher(expectedActions, storeActions)) {
+            return Promise.resolve();
+        }
+    } catch (err) {
+        if (err instanceof MismatchError) {
+            return Promise.reject(err);
+        }
+    }
+}
 
+module.exports = (store, expectedActions, options) => {
+    const { timeout, matcher } = {
+        timeout: 50,
+        matcher: actionsMatchOrder,
+        ...options,
+    };
+
+    if (typeof expectedActions === 'string' || isPlainObject(expectedActions)) {
+        expectedActions = [expectedActions];
+    }
+    if (Array.isArray(expectedActions)) {
+        expectedActions = expectedActions.map((value) => typeof value === 'string' ? { type: value } : value);
+    }
+
+    const matchPromise = settledPromise.bind(null, matcher, expectedActions);
+
+    let promise = matchPromise(store.getActions());
+
+    if (promise) {
         promise.cancel = () => {};
 
         return promise;
@@ -33,47 +57,55 @@ function waitForActions(store, actions, timeout) {
 
     let cancel;
 
-    const promise = new Promise((resolve, reject) => {
+    promise = new Promise((resolve, reject) => {
         const teardown = () => {
             clearTimeout(timeoutId);
             unsubscribe();
         };
         const timeoutId = setTimeout(() => {
             teardown();
-            reject(new waitForActions.TimeoutError());
+            reject(new TimeoutError());
         }, timeout);
         const unsubscribe = store.subscribe(() => {
-            if (shouldPromiseResolve(store.getActions())) {
-                teardown();
-                resolve();
-            }
+            const promise = matchPromise(store.getActions());
+
+            promise && resolve(promise);
         });
 
         cancel = () => {
             teardown();
-            reject(new waitForActions.CancelledError());
+            reject(new CancelledError());
         };
     });
 
     promise.cancel = cancel;
 
     return promise;
-}
+};
 
-waitForActions.TimeoutError = class extends Error {
+class TimeoutError extends Error {
     constructor() {
         super('Timeout reached while waiting for actions');
         this.code = 'ETIMEDOUT';
         this.name = 'TimeoutError';
     }
-};
+}
 
-waitForActions.CancelledError = class extends Error {
+class CancelledError extends Error {
     constructor() {
         super('Cancel was called by user');
         this.code = 'ECANCELLED';
         this.name = 'CancelledError';
     }
-};
+}
 
-module.exports = waitForActions;
+class MismatchError extends Error {
+    constructor() {
+        super('Found mismatch between the order of the array of expected and dispatched actions');
+        this.code = 'EMISMATCH';
+        this.name = 'MismatchError';
+    }
+}
+
+module.exports.MismatchError = MismatchError;
+module.exports.matchers = { containing: actionsContaining, order: actionsMatchOrder };
