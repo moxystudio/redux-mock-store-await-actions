@@ -69,7 +69,10 @@ module.exports = (store, expectedActions, options) => {
         const unsubscribe = store.subscribe(() => {
             const promise = matchPromise(store.getActions());
 
-            promise && resolve(promise);
+            if (promise) {
+                teardown();
+                resolve(promise);
+            }
         });
 
         cancel = () => {
