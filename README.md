@@ -228,6 +228,7 @@ waitForActions(store, expectedActions, { matcher: (expectedActions, storeActions
     if (hasLoginFail) {
         throw new waitForActions.MismatchError();
     }
+
     const hasLoginStart = storeActions.some((action) => action.type === 'LOGIN_START' && action.payload.username === 'my-username');
     const hasFetchOrdersSuccess = storeActions.some((action) => action.type === 'FETCH_ORDERS_SUCCESS');
 
