@@ -3,7 +3,7 @@
 const waitForActions = require('../');
 const configureStore = require('redux-mock-store').default;
 const thunkMiddleware = require('redux-thunk').default;
-const assertError = require('./util/assertError');
+const { assertError, spyOnUnsubscribe } = require('./util');
 
 const { containing } = waitForActions.matchers;
 const action1 = { type: 'ACTION-1', payload: { id: 1, name: 'ACTION ONE' } };
@@ -14,8 +14,7 @@ const timeoutError = { code: 'ETIMEDOUT', name: 'TimeoutError' };
 const cancelledError = { code: 'ECANCELLED', name: 'CancelledError' };
 const mismatchError = { code: 'EMISMATCH', name: 'MismatchError' };
 const asyncActionsCreator = (actions, timeout = 10) => (dispatch) => {
-    const timeoutId = setTimeout(() => {
-        clearTimeout(timeoutId);
+    setTimeout(() => {
         actions.forEach((action) => dispatch(action));
     }, timeout);
 };
@@ -24,7 +23,7 @@ const createMockStore = (middlewares = []) => configureStore(middlewares)();
 
 afterEach(() => {
     jest.useRealTimers();
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
 });
 
 it('should resolve the promise when a single action is dispatched', async () => {
@@ -56,6 +55,20 @@ it('should fulfill the promise when async action creator is dispatched', async (
     await waitForActions(mockStore, actions);
 
     expect(mockStore.getActions()).toEqual(actions);
+});
+
+it('should fulfill the promise when no actions are expected', async () => {
+    const mockStore = createMockStore([thunkMiddleware]);
+    const actions = [action1, action2, action3];
+
+    mockStore.dispatch(asyncActionsCreator(actions));
+
+    await waitForActions(mockStore, []);
+
+    mockStore.clearActions();
+    mockStore.dispatch(asyncActionsCreator(actions));
+
+    await waitForActions(mockStore, [], { matcher: containing });
 });
 
 it('should reject the promise when an action creator is dispatched and the order of expected and dispatched actions mismatch', () => {
@@ -109,15 +122,6 @@ it('should reject the promise via timeout when expected actions do not match a s
         return assertError(promise, timeoutError);
     }
 );
-
-it('should fulfill the promise when no actions are expected', async () => {
-    const mockStore = createMockStore();
-    const actions = [];
-
-    await waitForActions(mockStore, actions);
-
-    expect(mockStore.getActions()).toEqual(actions);
-});
 
 it('should reject the promise when expected actions are not received and timeout expires', () => {
     const mockStore = createMockStore();
@@ -235,4 +239,70 @@ it('should fulfill the promise the array of expected actions is contained in the
     const promise = waitForActions(mockStore, [action3, action2, action1], { matcher: containing });
 
     return promise;
+});
+
+it('should teardown correctly when promise fulfills', async () => {
+    const mockStore = createMockStore([thunkMiddleware]);
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    const getUnsubcribeSpy = spyOnUnsubscribe(mockStore);
+
+    mockStore.dispatch(asyncActionsCreator([action1]));
+
+    await waitForActions(mockStore, action1);
+
+    expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
+    expect(getUnsubcribeSpy()).toHaveBeenCalledTimes(1);
+});
+
+it('should teardown correctly when promise rejects via timeout', async () => {
+    expect.assertions(1);
+
+    const mockStore = createMockStore([thunkMiddleware]);
+    const getUnsubcribeSpy = spyOnUnsubscribe(mockStore);
+
+    mockStore.dispatch(asyncActionsCreator([action1]));
+
+    try {
+        await waitForActions(mockStore, [action1, action2]);
+    } catch (err) {
+        expect(getUnsubcribeSpy()).toHaveBeenCalledTimes(1);
+    }
+});
+
+it('should teardown correctly when promise rejects via cancelation', async () => {
+    expect.assertions(2);
+
+    const mockStore = createMockStore([thunkMiddleware]);
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    const getUnsubcribeSpy = spyOnUnsubscribe(mockStore);
+
+    mockStore.dispatch(asyncActionsCreator([action1]));
+
+    const promise = waitForActions(mockStore, [action1, action2]);
+
+    setTimeout(() => promise.cancel(), 10);
+
+    try {
+        await promise;
+    } catch (err) {
+        expect(getUnsubcribeSpy()).toHaveBeenCalledTimes(1);
+        expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
+    }
+});
+
+it('should teardown correctly when promise rejects with mismatch', async () => {
+    expect.assertions(2);
+
+    const mockStore = createMockStore([thunkMiddleware]);
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    const getUnsubcribeSpy = spyOnUnsubscribe(mockStore);
+
+    mockStore.dispatch(asyncActionsCreator([action1]));
+
+    try {
+        await waitForActions(mockStore, action2);
+    } catch (err) {
+        expect(getUnsubcribeSpy()).toHaveBeenCalledTimes(1);
+        expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
+    }
 });
