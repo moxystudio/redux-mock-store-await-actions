@@ -1,7 +1,7 @@
 {
   "name": "redux-mock-store-await-actions",
   "description": "Waits for specific actions to be dispatched or a timeout expires.",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "keywords": [
     "redux",
     "test",
