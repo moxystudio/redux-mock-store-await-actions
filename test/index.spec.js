@@ -1,11 +1,9 @@
 'use strict';
 
-const waitForActions = require('../');
+const { assertError, spyOnUnsubscribe, spyOnThrottleCancel } = require('./util');
 const configureStore = require('redux-mock-store').default;
 const thunkMiddleware = require('redux-thunk').default;
-const { assertError, spyOnUnsubscribe } = require('./util');
 
-const { containing } = waitForActions.matchers;
 const action1 = { type: 'ACTION-1', payload: { id: 1, name: 'ACTION ONE' } };
 const action2 = { type: 'ACTION-2', payload: { id: 2, name: 'ACTION TWO' } };
 const action3 = { type: 'ACTION-3', payload: { id: 3, name: 'ACTION THREE' } };
@@ -24,9 +22,11 @@ const createMockStore = (middlewares = []) => configureStore(middlewares)();
 afterEach(() => {
     jest.useRealTimers();
     jest.restoreAllMocks();
+    jest.resetModules();
 });
 
 it('should resolve the promise when a single action is dispatched', async () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore();
 
     mockStore.dispatch(action1);
@@ -36,6 +36,7 @@ it('should resolve the promise when a single action is dispatched', async () => 
 });
 
 it('should fulfill the promise when action creator is dispatched', async () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
     const actions = [action1, action2, action3];
 
@@ -47,6 +48,7 @@ it('should fulfill the promise when action creator is dispatched', async () => {
 });
 
 it('should fulfill the promise when async action creator is dispatched', async () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
     const actions = [action1, action2, action3];
 
@@ -58,6 +60,8 @@ it('should fulfill the promise when async action creator is dispatched', async (
 });
 
 it('should fulfill the promise when no actions are expected', async () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
+    const { containing } = waitForActions.matchers;
     const mockStore = createMockStore([thunkMiddleware]);
     const actions = [action1, action2, action3];
 
@@ -72,6 +76,7 @@ it('should fulfill the promise when no actions are expected', async () => {
 });
 
 it('should reject the promise when an action creator is dispatched and the order of expected and dispatched actions mismatch', () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
     const actions = [action1, action2, action3];
 
@@ -83,6 +88,7 @@ it('should reject the promise when an action creator is dispatched and the order
 });
 
 it('should reject the promise when an async action creator is dispatched and the order of expected and dispatched actions mismatch', () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
     const actions = [action1, action2, action3];
 
@@ -94,6 +100,7 @@ it('should reject the promise when an async action creator is dispatched and the
 });
 
 it('should fulfill the promise when expected actions match a subset of property values of dispatched actions', async () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
     const actions = [action1, action2, action3, action4];
 
@@ -109,6 +116,10 @@ it('should fulfill the promise when expected actions match a subset of property 
 
 it('should reject the promise via timeout when expected actions do not match a subset of property values of dispatched actions',
     () => {
+        jest.useFakeTimers();
+
+        const waitForActions = require('../'); // eslint-disable-line global-require
+        const { containing } = waitForActions.matchers;
         const mockStore = createMockStore([thunkMiddleware]);
         const actions = [action1, action2];
 
@@ -119,21 +130,31 @@ it('should reject the promise via timeout when expected actions do not match a s
             { type: 'ACTION-3', payload: { name: 'ACTION THREE' } },
         ], { matcher: containing });
 
+        jest.runAllTimers();
+
         return assertError(promise, timeoutError);
     }
 );
 
 it('should reject the promise when expected actions are not received and timeout expires', () => {
+    jest.useFakeTimers();
+
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore();
     const actions = [action1, action2, action3];
 
     mockStore.dispatch(action1);
     mockStore.dispatch(action2);
 
-    return assertError(waitForActions(mockStore, actions), timeoutError);
+    const promise = waitForActions(mockStore, actions);
+
+    jest.runAllTimers();
+
+    return assertError(promise, timeoutError);
 });
 
 it('should fulfill the promise when a single action type is expected', () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
 
     mockStore.dispatch(action1);
@@ -142,6 +163,7 @@ it('should fulfill the promise when a single action type is expected', () => {
 });
 
 it('should fulfill the promise when action types are expected', () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
 
     mockStore.dispatch(actionsCreator([action1, action2, action3]));
@@ -150,6 +172,7 @@ it('should fulfill the promise when action types are expected', () => {
 });
 
 it('should fulfill the promise when custom matcher is passed and evaluates to true', async () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
     const matcher = jest.fn(() => true);
 
@@ -162,17 +185,25 @@ it('should fulfill the promise when custom matcher is passed and evaluates to tr
 });
 
 it('should reject the promise via timeout when custom matcher is passed and evaluates to false', async () => {
+    jest.useFakeTimers();
+
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
     const matcher = jest.fn(() => false);
 
     mockStore.dispatch(action1);
 
-    await assertError(waitForActions(mockStore, [], { matcher }), timeoutError);
+    const promise = waitForActions(mockStore, [], { matcher });
+
+    jest.runAllTimers();
+
+    await assertError(promise, timeoutError);
 
     expect(matcher).toHaveBeenCalledWith([], [action1]);
 });
 
 it('should reject the promise when custom matcher throws mismatch error', async () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
     const matcher = jest.fn(() => { throw new waitForActions.MismatchError(); });
 
@@ -186,6 +217,8 @@ it('should reject the promise when custom matcher throws mismatch error', async 
 it('should reject the promise when the default timeout expires', () => {
     jest.useFakeTimers();
 
+    const waitForActions = require('../'); // eslint-disable-line global-require
+
     const mockStore = createMockStore();
 
     const promise = waitForActions(mockStore, action1);
@@ -196,6 +229,7 @@ it('should reject the promise when the default timeout expires', () => {
 });
 
 it('should return a promise with a cancel function', () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore();
 
     const promise = waitForActions(mockStore, action1);
@@ -209,6 +243,7 @@ it('should return a promise with a cancel function', () => {
 });
 
 it('should reject the promise when cancel() is called before dispatch of remaining actions', () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore();
 
     const promise = waitForActions(mockStore, [action1, action2, action3]);
@@ -219,18 +254,22 @@ it('should reject the promise when cancel() is called before dispatch of remaini
 });
 
 it('should reject the promise when the specified timeout expires', () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
+
     jest.useFakeTimers();
 
     const mockStore = createMockStore();
 
     const promise = waitForActions(mockStore, action1, { timeout: 1000 });
 
-    jest.runTimersToTime(1000);
+    jest.advanceTimersByTime(1000);
 
     return assertError(promise, timeoutError);
 });
 
 it('should fulfill the promise the array of expected actions is contained in the array of dispatched actions', () => {
+    const waitForActions = require('../'); // eslint-disable-line global-require
+    const { containing } = waitForActions.matchers;
     const mockStore = createMockStore([thunkMiddleware]);
     const actions = [action1, action2, action3];
 
@@ -242,6 +281,9 @@ it('should fulfill the promise the array of expected actions is contained in the
 });
 
 it('should teardown correctly when promise fulfills', async () => {
+    expect.assertions(2);
+
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
     const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
     const getUnsubcribeSpy = spyOnUnsubscribe(mockStore);
@@ -257,6 +299,7 @@ it('should teardown correctly when promise fulfills', async () => {
 it('should teardown correctly when promise rejects via timeout', async () => {
     expect.assertions(1);
 
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
     const getUnsubcribeSpy = spyOnUnsubscribe(mockStore);
 
@@ -270,15 +313,17 @@ it('should teardown correctly when promise rejects via timeout', async () => {
 });
 
 it('should teardown correctly when promise rejects via cancelation', async () => {
-    expect.assertions(2);
+    expect.assertions(3);
 
+    const throttleCancelSpy = spyOnThrottleCancel();
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
     const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
     const getUnsubcribeSpy = spyOnUnsubscribe(mockStore);
 
     mockStore.dispatch(asyncActionsCreator([action1]));
 
-    const promise = waitForActions(mockStore, [action1, action2]);
+    const promise = waitForActions(mockStore, [action1, action2], { throttleWait: 100 });
 
     setTimeout(() => promise.cancel(), 10);
 
@@ -286,13 +331,16 @@ it('should teardown correctly when promise rejects via cancelation', async () =>
         await promise;
     } catch (err) {
         expect(getUnsubcribeSpy()).toHaveBeenCalledTimes(1);
-        expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
+        expect(throttleCancelSpy()).toHaveBeenCalledTimes(1);
+        // When .cancel() is called on a throttled function, clearTimeout() is also called
+        expect(clearTimeoutSpy).toHaveBeenCalledTimes(2);
     }
 });
 
 it('should teardown correctly when promise rejects with mismatch', async () => {
     expect.assertions(2);
 
+    const waitForActions = require('../'); // eslint-disable-line global-require
     const mockStore = createMockStore([thunkMiddleware]);
     const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
     const getUnsubcribeSpy = spyOnUnsubscribe(mockStore);
@@ -305,4 +353,34 @@ it('should teardown correctly when promise rejects with mismatch', async () => {
         expect(getUnsubcribeSpy()).toHaveBeenCalledTimes(1);
         expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
     }
+});
+
+it('should fulfill the promise when throttling is enabled', () => {
+    jest.useFakeTimers();
+
+    const waitForActions = require('../'); // eslint-disable-line global-require
+    const mockStore = createMockStore([thunkMiddleware]);
+
+    mockStore.dispatch(asyncActionsCreator([action1, action2, action3]));
+
+    const promise = waitForActions(mockStore, [action1, action2, action3], { throttleWait: 100 });
+
+    jest.runAllTimers();
+
+    return promise;
+});
+
+it('should reject the promise via timeout when throttling is enabled', () => {
+    jest.useFakeTimers();
+
+    const waitForActions = require('../'); // eslint-disable-line global-require
+    const mockStore = createMockStore([thunkMiddleware]);
+
+    mockStore.dispatch(asyncActionsCreator([action1]));
+
+    const promise = waitForActions(mockStore, [action1, action2, action3], { throttleWait: 100 });
+
+    jest.runAllTimers();
+
+    return assertError(promise, timeoutError);
 });

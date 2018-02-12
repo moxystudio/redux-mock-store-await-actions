@@ -181,13 +181,23 @@ The actions to wait for. It can be either:
 ##### timeout
 
 Type: `Number`   
-Default: 50
+Default: 2000
 
 The timeout given in milliseconds.
 
+##### throttleWait
+
+Type: `Number`   
+Default: 0
+
+Specifies the time in milliseconds that every invocation to the action's matcher take place at since the last invocation. When set to zero, throttling is disabled.
+
+When throttling is enabled, the `matcher` will be called at most once per `throttleWait` milliseconds receiving the array of actions dispatched until that time. If the `matcher` does not resolve the `Promise` until `timeout` milliseconds have elapsed, the `Promise` is rejected throwing `TimeoutError`.
+This feature is useful when one needs to wait for several actions or a burst of actions to be dispatched, effectively skip invocations to the action's matcher until the Redux store "settles" to avoid running complex action comparison logic in the meantime and improve performance.
+
 ##### matcher
 
-Type: `Function`
+Type: `Function`   
 Default: `.matchers.order`
 
 Supplies custom behavior to specify how expected and dispatched actions should be compared. The function accepts two arguments: the array of expected actions and dispatched actions.
