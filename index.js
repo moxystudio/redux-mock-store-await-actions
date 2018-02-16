@@ -1,9 +1,10 @@
 'use strict';
 
 const differenceWith = require('lodash/differenceWith');
+const isEqualWith = require('lodash/isEqualWith');
 const isMatch = require('lodash/isMatch');
 const isPlainObject = require('lodash/isPlainObject');
-const isEqualWith = require('lodash/isEqualWith');
+const throttle = require('lodash/throttle');
 
 function actionsContaining(expectedActions, storeActions) {
     return differenceWith(expectedActions, storeActions, (expectedAction, storeAction) => isMatch(storeAction, expectedAction)).length === 0;
@@ -32,9 +33,10 @@ function settledPromise(matcher, expectedActions, storeActions) {
 }
 
 module.exports = (store, expectedActions, options) => {
-    const { timeout, matcher } = {
-        timeout: 50,
+    const { timeout, matcher, throttleWait } = {
+        timeout: 2000,
         matcher: actionsMatchOrder,
+        throttleWait: 0,
         ...options,
     };
 
@@ -58,7 +60,26 @@ module.exports = (store, expectedActions, options) => {
     let cancel;
 
     promise = new Promise((resolve, reject) => {
+        const maybeThrottled = (() => {
+            const runMatcher = (storeActions) => {
+                const promise = matchPromise(storeActions);
+
+                if (promise) {
+                    teardown();
+                    resolve(promise);
+                }
+            };
+
+            if (throttleWait > 0) {
+                return throttle(runMatcher, throttleWait, { leading: false, trailing: true });
+            }
+
+            runMatcher.cancel = () => {};
+
+            return runMatcher;
+        })();
         const teardown = () => {
+            maybeThrottled.cancel();
             clearTimeout(timeoutId);
             unsubscribe();
         };
@@ -66,14 +87,7 @@ module.exports = (store, expectedActions, options) => {
             teardown();
             reject(new TimeoutError());
         }, timeout);
-        const unsubscribe = store.subscribe(() => {
-            const promise = matchPromise(store.getActions());
-
-            if (promise) {
-                teardown();
-                resolve(promise);
-            }
-        });
+        const unsubscribe = store.subscribe(() => maybeThrottled(store.getActions()));
 
         cancel = () => {
             teardown();
