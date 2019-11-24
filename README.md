@@ -3,10 +3,10 @@
 [![NPM version][npm-image]][npm-url] [![Downloads][downloads-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Coverage Status][codecov-image]][codecov-url] [![Dependency status][david-dm-image]][david-dm-url] [![Dev Dependency status][david-dm-dev-image]][david-dm-dev-url]
 
 [npm-url]:https://npmjs.org/package/redux-mock-store-await-actions
-[npm-image]:http://img.shields.io/npm/v/redux-mock-store-await-actions.svg
-[downloads-image]:http://img.shields.io/npm/dm/redux-mock-store-await-actions.svg
+[npm-image]:https://img.shields.io/npm/v/redux-mock-store-await-actions.svg
+[downloads-image]:https://img.shields.io/npm/dm/redux-mock-store-await-actions.svg
 [travis-url]:https://travis-ci.org/moxystudio/redux-mock-store-await-actions
-[travis-image]:http://img.shields.io/travis/moxystudio/redux-mock-store-await-actions/master.svg
+[travis-image]:https://img.shields.io/travis/moxystudio/redux-mock-store-await-actions/master.svg
 [codecov-url]:https://codecov.io/gh/moxystudio/redux-mock-store-await-actions
 [codecov-image]:https://img.shields.io/codecov/c/github/moxystudio/redux-mock-store-await-actions/master.svg
 [david-dm-url]:https://david-dm.org/moxystudio/redux-mock-store-await-actions
